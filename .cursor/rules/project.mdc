@@ -39,3 +39,18 @@ alwaysApply: true
 
 - `./scripts/generate_status.sh` 実行で `docs/status.csv|md` を更新。
 - `-` は N/A（skip）。未処理（×）は `status.csv` を基に対応し、完了後にスクリプトで更新。
+
+## 更新処理フロー
+
+ingested〜consulting の処理完了後は必ず以下を実行：
+
+```bash
+# 1. ステータス更新
+./scripts/generate_status.sh
+
+# 2. READMEテーブル更新
+./scripts/generate_readme_table.sh
+
+# 3. READMEに反映
+awk 'BEGIN{print "<!-- BEGIN: generated table -->"}1; END{print "<!-- END: generated table -->"}' docs/readme_table.md > /tmp/readme_table.inlined.md && awk '1;/<!-- BEGIN: generated table -->/{exit}' README.md > /tmp/README.head && awk '/<!-- END: generated table -->/ {p=1; next} p==1 {print;}' README.md > /tmp/README.tail && cat /tmp/README.head /tmp/readme_table.inlined.md /tmp/README.tail > /tmp/README.new && mv /tmp/README.new README.md
+```

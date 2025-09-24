@@ -7,9 +7,23 @@ cd "$ROOT_DIR"
 CSV_OUT="docs/status.csv"
 MD_OUT="docs/status.md"
 
-# Gather candidate slugs from multiple locations
+# Gather candidate slugs from url_list.md and existing directories
 collect_slugs() {
   {
+    # Extract directory names from url_list.md
+    if [[ -f "docs/url_list.md" ]]; then
+      grep "^|" docs/url_list.md | grep -v "^| KB Status" | grep -v "^| ---" | while read -r line; do
+        # Parse table row: | KB Status | Title | URL | Method | DirectoryName | Note |
+        IFS='|' read -ra parts <<< "$line"
+        if [[ ${#parts[@]} -ge 6 ]]; then
+          dir_name=$(echo "${parts[5]}" | xargs)  # trim whitespace
+          if [[ -n "$dir_name" && "$dir_name" != "ディレクトリ名" && "$dir_name" != "一般財団法人から入手" ]]; then
+            echo "$dir_name"
+          fi
+        fi
+      done
+    fi
+    # Also check existing directories
     if [[ -d ingested ]]; then ls -1 ingested; fi
     if [[ -d sources ]]; then ls -1 sources; fi
     if [[ -d summaries ]]; then ls -1 summaries | sed 's/\.md$//'; fi
@@ -29,15 +43,37 @@ exists_glob() {
   fi
 }
 
-# Detect skipped ingest (ingested/<slug>/data.json contains "skipped_reason")
+# Detect skipped ingest (ingested/<slug>/data.json contains "skipped_reason" or url_list.md has skip method)
 is_skipped() {
   local slug="$1"
   local jf="ingested/$slug/data.json"
+
+  # Check if data.json contains skipped_reason
   if [[ -f "$jf" ]] && grep -q '"skipped_reason"' "$jf"; then
     return 0
-  else
-    return 1
   fi
+
+  # Check if url_list.md has skip method for this slug
+  if [[ -f "docs/url_list.md" ]]; then
+    local found=0
+    while read -r line; do
+      IFS='|' read -ra parts <<< "$line"
+      if [[ ${#parts[@]} -ge 6 ]]; then
+        dir_name=$(echo "${parts[5]}" | xargs)
+        method=$(echo "${parts[4]}" | xargs)
+        if [[ "$dir_name" == "$slug" && "$method" == "skip" ]]; then
+          found=1
+          break
+        fi
+      fi
+    done < <(grep "^|" docs/url_list.md | grep -v "^| KB Status" | grep -v "^| ---")
+
+    if [[ $found -eq 1 ]]; then
+      return 0
+    fi
+  fi
+
+  return 1
 }
 
 mark() {
