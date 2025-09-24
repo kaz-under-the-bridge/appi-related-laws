@@ -1,0 +1,225 @@
+---
+description: TypeScript/Node.js開発ルール（APPI関連法令KB）
+globs: ["src/**/*.ts", "*.ts", "*.js"]
+alwaysApply: true
+---
+
+# TypeScript/Node.js 開発ルール
+
+## コーディング規約
+
+### 基本方針
+- **ES Modules**を使用（import/export）
+- **Strict TypeScript**設定を維持
+- **関数型プログラミング**を優先（副作用を最小限に）
+- **エラーハンドリング**は必須（try-catch + 適切なログ）
+
+### 命名規則
+- **ファイル名**: kebab-case (`url-parser.ts`, `ingest-utils.ts`)
+- **関数名**: camelCase (`generateSlug`, `parseUrlList`)
+- **型名**: PascalCase (`UrlListEntry`, `IngestedDocument`)
+- **定数**: UPPER_SNAKE_CASE (`PROJECT_ROOT`, `MAX_RETRIES`)
+
+### インポート順序
+```typescript
+// 1. Node.js標準ライブラリ
+import * as fs from 'fs/promises';
+import * as path from 'path';
+
+// 2. サードパーティ
+import axios from 'axios';
+import { z } from 'zod';
+
+// 3. ローカルモジュール
+import { generateSlug } from './utils.js';
+import type { UrlListEntry } from './types.js';
+```
+
+### エラーハンドリング
+```typescript
+// ❌ 悪い例
+function riskyFunction() {
+  return JSON.parse(data); // エラー処理なし
+}
+
+// ✅ 良い例  
+function safeFunction(data: string): ParseResult {
+  try {
+    return { success: true, data: JSON.parse(data) };
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Parse error' 
+    };
+  }
+}
+```
+
+## Zodスキーマ活用
+
+### バリデーション必須箇所
+- 外部データ入力（URL一覧、ダウンロード結果）
+- ファイル保存前の構造チェック
+- 設定ファイル読み込み
+
+### スキーマ定義例
+```typescript
+// 型安全性を保つためZodスキーマから型を生成
+export const ConfigSchema = z.object({
+  maxRetries: z.number().min(1).max(10).default(3),
+  timeout: z.number().min(1000).default(30000),
+  userAgent: z.string().default('APPI-KB-Bot/1.0')
+});
+
+export type Config = z.infer<typeof ConfigSchema>;
+```
+
+## 非同期処理
+
+### Promise/async-await
+- **callback地獄を回避** - Promise chainかasync/awaitを使用
+- **並列処理**が可能な場合は`Promise.all`を活用
+- **逐次処理**が必要な場合のみfor-awaitを使用
+
+```typescript
+// ✅ 並列ダウンロード
+const results = await Promise.all(
+  urls.map(url => downloadContent(url))
+);
+
+// ✅ 逐次処理（サーバー負荷軽減）
+for (const url of urls) {
+  await processUrl(url);
+  await sleep(1000); // レート制限
+}
+```
+
+### エラー境界
+```typescript
+// 個別エラーを全体処理に影響させない
+const results = await Promise.allSettled(
+  entries.map(async (entry) => {
+    try {
+      return await processEntry(entry);
+    } catch (error) {
+      console.error(`Failed to process ${entry.title}:`, error);
+      return { error: error.message, entry };
+    }
+  })
+);
+```
+
+## ファイル操作
+
+### パス操作
+- `path.join()`を必ず使用（OS非依存）
+- 絶対パスでの操作を優先
+- ディレクトリ存在チェック + 作成を自動化
+
+```typescript
+// ✅ 推奨パターン
+const filePath = path.join(PROJECT_ROOT, 'sources', `${slug}.pdf`);
+await ensureDir(path.dirname(filePath));
+await fs.writeFile(filePath, buffer);
+```
+
+### ファイル命名
+- **スラッグ化**: 日本語→英数字ハイフン変換
+- **重複回避**: ハッシュ付与で一意性担保
+- **拡張子**: Content-Typeに基づく適切な拡張子
+
+## ログ・デバッグ
+
+### コンソール出力
+- **進捗表示**: `[1/10]` 形式で現在位置を明示
+- **ステータス**: 絵文字で視覚的に区別（✅❌⚠️📥💾）
+- **エラー詳細**: スタックトレースは開発時のみ、本番は要約
+
+```typescript
+console.log(`\n[${i + 1}/${total}] 処理中: ${entry.title}`);
+console.log(`📥 ダウンロード中: ${url}`);
+console.log(`✅ 完了: ${slug} (${textLength}文字)`);
+```
+
+### 構造化ログ（将来拡張）
+```typescript
+// JSON形式でログ出力（監視・分析用）
+const logEntry = {
+  timestamp: new Date().toISOString(),
+  level: 'info',
+  operation: 'ingest',
+  slug,
+  url: normalizedUrl,
+  success: true,
+  textLength,
+  warnings: extractionResult.warnings
+};
+```
+
+## テスト戦略
+
+### 単体テスト対象
+- `utils.ts` の純粋関数（`generateSlug`, `normalizeUrl`）
+- `parsers.ts` のMarkdown解析
+- Zodスキーマのバリデーション
+
+### モック対象
+- HTTP通信（axios）
+- ファイルシステム操作（fs）
+- 外部依存ライブラリ（pdf-parse）
+
+## パフォーマンス
+
+### メモリ管理
+- 大きなPDFファイルはストリーミング処理を検討
+- Buffer使用時は適切な解放
+- 不要なオブジェクト参照を避ける
+
+### ネットワーク
+- **タイムアウト設定**: 30秒
+- **リトライ機構**: 3回まで、指数バックオフ
+- **レート制限**: 1秒間隔でリクエスト
+
+## 設定管理
+
+### 環境変数
+```typescript
+const config = {
+  timeout: parseInt(process.env.TIMEOUT || '30000'),
+  maxRetries: parseInt(process.env.MAX_RETRIES || '3'),
+  userAgent: process.env.USER_AGENT || 'APPI-KB-Bot/1.0'
+};
+```
+
+### 設定ファイル
+- 開発: `config/development.json`
+- 本番: `config/production.json`
+- Zodスキーマでバリデーション必須
+
+## セキュリティ
+
+### URL検証
+- HTTPSを優先、HTTPは警告表示
+- chrome-extension等の不正URLを拒否
+- ドメインホワイトリスト（官公庁サイトのみ）
+
+### ファイル検証
+- Content-Typeとファイル内容の整合性チェック
+- ファイルサイズ制限（100MB以下）
+- ウイルススキャン（将来的に）
+
+## デプロイ・運用
+
+### ビルド
+```bash
+npm run build  # TypeScript → JavaScript
+npm run lint   # ESLint実行
+npm run test   # Jest実行
+```
+
+### 実行
+```bash
+npm run ingest              # 全件取得
+npm run ingest -- --url=... # 単一URL処理
+npm run dev                 # 開発モード（watch）
+```

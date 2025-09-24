@@ -1,0 +1,41 @@
+---
+description: プロジェクト固有ルール（APPI関連法令ナレッジベース）
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# APPI 関連法令ナレッジベース - プロジェクトルール
+
+本ルールは ingest → summarize → points → consulting の生成フローに関わる最低限の指針のみを保持します。開発/Devcontainer 等は `docs/development.md` を参照。
+
+## ディレクトリ構成（生成物）
+
+```
+/sources/     # 元資料（PDF/HTML保存 or メタ）
+/ingested/    # 抽出JSON
+/summaries/   # 要約
+/points/      # 重要ポイント
+/consulting/  # コンサル助言
+```
+
+## フロー
+
+- 取得: `docs/url_list.md` を唯一の入力。保存先は `sources/<slug>/content.*` とメタ `metadata.md`。
+- 抽出: `ingested/<slug>/data.json` を作成（失敗/skip も記録）。
+- 要約: `summaries/<slug>.md`（Frontmatter 必須）。
+- ポイント: `points/<slug>.md`（If-Then + Ref）。
+- コンサル: `consulting/controls-*.md`（Controls 表）。
+
+## 命名
+
+- slug は `url_list.md` の項目名を英数字ハイフンに正規化。
+
+## 品質
+
+- 一次情報 URL・日付・版数を Frontmatter に記載。
+- 出典・根拠を明示、推測はラベル付け。
+
+## ステータス管理
+
+- `./scripts/generate_status.sh` 実行で `docs/status.csv|md` を更新。
+- `-` は N/A（skip）。未処理（×）は `status.csv` を基に対応し、完了後にスクリプトで更新。

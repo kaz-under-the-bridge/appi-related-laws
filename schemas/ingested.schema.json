@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Ingested Document Schema",
+  "type": "object",
+  "required": [
+    "slug",
+    "source_info",
+    "extraction_meta",
+    "content"
+  ],
+  "properties": {
+    "slug": {
+      "type": "string",
+      "description": "ファイル識別子（英数小文字-ハイフン）"
+    },
+    "source_info": {
+      "type": "object",
+      "required": [
+        "url",
+        "title",
+        "retrieved_at"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "title": {
+          "type": "string"
+        },
+        "retrieved_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "etag": {
+          "type": "string"
+        },
+        "last_modified": {
+          "type": "string"
+        },
+        "content_type": {
+          "type": "string"
+        },
+        "file_size": {
+          "type": "integer"
+        },
+        "checksum": {
+          "type": "string"
+        }
+      }
+    },
+    "extraction_meta": {
+      "type": "object",
+      "required": [
+        "success",
+        "method"
+      ],
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "html",
+            "pdf",
+            "text",
+            "ocr"
+          ]
+        },
+        "total_pages": {
+          "type": "integer"
+        },
+        "extracted_pages": {
+          "type": "integer"
+        },
+        "failed_pages": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error_message": {
+          "type": "string"
+        },
+        "skipped_reason": {
+          "type": "string"
+        }
+      }
+    },
+    "content": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "full_text": {
+              "type": "string"
+            },
+            "pages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "page_num": {
+                    "type": "integer"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "html": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "metadata": {
+              "type": "object"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

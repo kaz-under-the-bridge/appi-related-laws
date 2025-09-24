@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Security Controls Table Schema",
+  "type": "object",
+  "required": [
+    "controls"
+  ],
+  "properties": {
+    "controls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "control",
+          "risk",
+          "measure",
+          "evidence",
+          "owner",
+          "priority",
+          "reference"
+        ],
+        "properties": {
+          "control": {
+            "type": "string",
+            "description": "コントロール名"
+          },
+          "risk": {
+            "type": "string",
+            "description": "Why (Risk) - リスクの説明"
+          },
+          "measure": {
+            "type": "string",
+            "description": "How (Measure) - 実施方法"
+          },
+          "evidence": {
+            "type": "string",
+            "description": "Evidence/Log - 証跡・ログ"
+          },
+          "owner": {
+            "type": "string",
+            "description": "責任者"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "High",
+              "Medium",
+              "Low"
+            ]
+          },
+          "reference": {
+            "type": "string",
+            "description": "Ref(APPI/Gdl) - 根拠条文・ガイドライン"
+          },
+          "implementation_difficulty": {
+            "type": "string",
+            "enum": [
+              "Easy",
+              "Medium",
+              "Hard"
+            ]
+          },
+          "related_standards": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "関連規格（ISO27001等）"
+          }
+        }
+      }
+    }
+  }
+}
